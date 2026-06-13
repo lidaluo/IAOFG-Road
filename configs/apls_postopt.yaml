@@ -1,0 +1,11 @@
+# APLS 后处理可选开关（供自定义脚本读取；默认 demo 仍走原 pipeline）
+post_processing:
+  enable_dp_simplify: true
+  dp_epsilon: 1.5
+  dp_preserve_angle_deg: 25.0
+
+  enable_soft_direction: true
+  soft_lambda_d: 1.0
+  soft_weight_threshold: 0.35
+  soft_min_rho: 0.30
+  soft_max_dist_frac: 1.5

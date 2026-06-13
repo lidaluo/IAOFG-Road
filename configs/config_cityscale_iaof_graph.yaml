@@ -1,0 +1,80 @@
+# IAOF-Graph @ City-Scale：2048 瓦片 → 512 块训练（对齐 GLD-Road 预处理思想）
+#
+# 与数据集自带文件对齐（见数据集根目录）：
+# - generate_labels.py：IMAGE_SIZE=2048，ROAD_WIDTH=3，KEYPOINT_RADIUS=3；
+#   读 20cities/region_{i}_refine_gt_graph.p，写 processed/road_mask_{i}.png、keypoint_mask_{i}.png（i=0..179）。
+# - data_split.json：键 train / valid / test（注意验证集是 valid）。
+# - 卫星图：20cities/region_{i}_sat.png（与本仓库 data/cityscale_official.py 常量说明一致）。
+#
+# 数据根目录请按本机实际修改
+
+data:
+  layout: cityscale_patches
+  root: E:/datasets/cityscaledataset/cityscale
+  split_json: E:/datasets/cityscaledataset/cityscale/data_split.json
+  use_official_split: true
+  patch_size: 512
+  full_image_size: 2048
+  # 官方卫星图：20cities/region_{idx}_sat.png
+  sat_images_subdir: 20cities
+  images_subdir: images
+  processed_subdir: processed
+  cityscale_id_subsets: ["train", "valid"]
+  # 块内裁 512 后送入 Swin 的尺寸（显存紧张保持 224；有 24G 可试 512 + swin_img_size: 512）
+  encoder_input_size: [224, 224]
+  image_size: [224, 224]
+  num_workers: 0
+  max_samples: 0
+
+model:
+  encoder: swin_tiny
+  num_classes: 1
+  force_swin_224: false
+  swin_img_size: 224
+
+training:
+  epochs: 80
+  learning_rate: 0.0001
+  weight_decay: 0.0001
+  lambda_seg: 1.0
+  lambda_inter: 0.35
+  lambda_orient: 0.35
+  lambda_anchor: 0.1
+  lambda_topo: 0.0
+  seg_pos_weight: 80.0
+  inter_pos_weight: 40.0
+  use_dynamic_pos_weight: true
+  use_dynamic_seg_pos_weight: true
+  use_dynamic_inter_pos_weight: false
+  min_pos_weight: 5.0
+  max_pos_weight: 120.0
+  seg_warmup_epochs: 10
+  warmup_aux_lambda_inter: 0.05
+  warmup_aux_lambda_orient: 0.05
+  multitask_ramp_epochs: 10
+  checkpoint_dir: checkpoints_cityscale
+  log_dir: logs_cityscale
+  batch_size: 2
+  validate_every: 1
+  save_visual_every: 2
+  save_every: 5
+  lr_scheduler_factor: 0.5
+  lr_scheduler_patience: 4
+  min_lr: 0.000001
+
+inference:
+  threshold: 0.5
+  nms_size: 3
+
+evaluation:
+  post_threshold: 0.25
+  topo_f1_buffer_px: 5
+
+# 第二阶段 Local Query（train_two_stage.py 读取）
+local_query:
+  patch_size: 128
+  epochs: 25
+  learning_rate: 0.001
+  batch_size: 16
+  max_samples_per_tile: 350
+  checkpoint_path: checkpoints_cityscale/local_query_decoder.pth
